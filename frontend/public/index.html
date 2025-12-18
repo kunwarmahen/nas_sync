@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="USB Sync Manager - Schedule USB to NAS backups with email notifications"
+    />
+    <title>USB Sync Manager</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+
+    <!-- Load runtime API URL configuration -->
+    <script>
+      // Try to load config.json (created by nginx at runtime)
+      fetch("/config.json")
+        .then((r) => r.json())
+        .then((config) => {
+          if (config && config.API_URL) {
+            window.API_URL = config.API_URL;
+            console.log("✓ API URL configured at runtime:", config.API_URL);
+          }
+        })
+        .catch((e) => {
+          console.log("config.json not found, will use default API URL");
+        });
+    </script>
+  </body>
+</html>

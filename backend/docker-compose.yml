@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  usb-sync-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: usb-sync-manager
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - SMTP_SERVER=smtp.gmail.com
+      - SMTP_PORT=587
+      - SENDER_EMAIL=${SENDER_EMAIL:-}
+      - SENDER_PASSWORD=${SENDER_PASSWORD:-}
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Configuration and schedules (persisted)
+      - usb-sync-config:/etc/usb-sync-manager
+      # Local testing: mount USB drives and backup directories
+      - /media:/media:ro
+      - /mnt:/mnt:ro
+      # On NAS, mount these:
+      # - /volume1:/volume1
+      # - /volume2:/volume2
+      # etc.
+    networks:
+      - usb-sync-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  usb-sync-config:
+    driver: local
+
+networks:
+  usb-sync-network:
+    driver: bridge
