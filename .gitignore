@@ -3,3 +3,4 @@ frontend/node_modules/**/*
 frontend/build/**/*
 .DS_Store
 md/**/*
+frontend/package-lock.json
