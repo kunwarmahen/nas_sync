@@ -91,13 +91,13 @@ scp migrate-usb-sync-manager-*.tar user@nas-ip:/tmp/
 ```bash
 # Backend
 cd backend
-./run.sh docker build
-./run.sh docker run
+./run.sh podman/docker build
+./run.sh podman/docker run
 
 # Frontend
 cd frontend
-./frontend.sh docker build
-./frontend.sh docker run
+./frontend.sh podman/docker build
+./frontend.sh podman/docker run
 # When prompted for API URL, press ENTER (auto-detects)
 ```
 
@@ -190,7 +190,7 @@ REACT_APP_API_URL=http://localhost:5000
 
 - `GET /api/usb-drives` - List connected USB drives
 - `GET /api/system/status` - System information
-- `GET /api/health` - Health check
+- `GET /health` - Health check
 
 ### Email
 
@@ -231,12 +231,12 @@ See `CORS_GUIDE.md` for detailed troubleshooting.
 ```bash
 # Clean WITHOUT removing volumes (schedules preserved)
 cd backend
-./run.sh docker clean
+./run.sh podman/docker clean
 # Select: 1 (Keep schedules)
 
 # Rebuild
-./run.sh docker build
-./run.sh docker run
+./run.sh podman/docker build
+./run.sh podman/docker run
 ```
 
 ### Frontend Shows Localhost
@@ -245,9 +245,9 @@ cd backend
 
 ```bash
 cd frontend
-./frontend.sh docker clean
-./frontend.sh docker build
-./frontend.sh docker run
+./frontend.sh podman/docker clean
+./frontend.sh podman/docker build
+./frontend.sh podman/docker run
 # Press ENTER when asked for API URL (auto-detects)
 ```
 
@@ -261,7 +261,7 @@ cd frontend
 cd backend
 # Edit usb_sync_backend.py
 # Changes apply immediately in local mode
-# For Docker: rebuild with ./run.sh docker build
+# For Docker: rebuild with ./run.sh podman/docker build
 ```
 
 **Frontend Changes:**
@@ -270,14 +270,14 @@ cd backend
 cd frontend
 # Edit src/App.jsx
 # Changes auto-refresh in dev mode (npm run dev)
-# For Docker: rebuild with ./frontend.sh docker build
+# For Docker: rebuild with ./frontend.sh podman/docker build
 ```
 
 ### Running Tests
 
 ```bash
 # Backend health check
-curl http://localhost:5000/api/health
+curl http://localhost:5000/health
 
 # Frontend API test (from browser console)
 fetch('http://localhost:5000/api/schedules')
@@ -289,7 +289,7 @@ fetch('http://localhost:5000/api/schedules')
 
 ### Before Going Live
 
-- [ ] Test backend at http://nas-ip:5000/api/health
+- [ ] Test backend at http://nas-ip:5000/health
 - [ ] Test frontend at http://nas-ip:3000
 - [ ] Verify email notifications working
 - [ ] Test at least one manual backup
