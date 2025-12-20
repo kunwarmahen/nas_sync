@@ -92,6 +92,35 @@ export default function USBSyncDashboard() {
     isActive: true,
   });
 
+  // Timezone handling
+  const [userTimezone, setUserTimezone] = useState(null);
+  const [systemTimezone, setSystemTimezone] = useState("UTC");
+
+  // Get user's timezone from browser
+  useEffect(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    setUserTimezone(tz);
+    console.log("✓ BROWSER timezone detected:", tz);
+  }, []);
+
+  // Fetch system timezone from backend
+  useEffect(() => {
+    fetch(`${apiUrl}/api/system/timezone`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.timezone) {
+          setSystemTimezone(data.timezone);
+          console.log("✓ BACKEND/SYSTEM timezone:", data.timezone);
+          console.log("  Full response:", data);
+        }
+      })
+      .catch((e) => {
+        console.log("⚠️ Could not fetch system timezone, using UTC");
+        console.error(e);
+      });
+  }, [apiUrl]);
+
+  // Fetch initial data and set up refresh intervals
   useEffect(() => {
     fetchSchedules();
     fetchUSBDrives();
@@ -286,6 +315,71 @@ export default function USBSyncDashboard() {
     }
   };
 
+  // Convert system time to user timezone for display
+  const convertTimeToUserTimezone = (systemTime, storedSystemTimezone) => {
+    if (!userTimezone || !storedSystemTimezone) {
+      return systemTime;
+    }
+
+    // If stored timezone matches user timezone, no conversion needed
+    if (userTimezone === storedSystemTimezone) {
+      return systemTime;
+    }
+
+    try {
+      const [hours, minutes] = systemTime.split(":").map(Number);
+
+      // Create a reference date
+      const date = new Date("2024-01-15T" + systemTime + ":00Z");
+
+      // Get formatter for user's timezone
+      const userFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: userTimezone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      const parts = userFormatter.formatToParts(date);
+      const userHours = parts.find((p) => p.type === "hour")?.value || "00";
+      const userMinutes = parts.find((p) => p.type === "minute")?.value || "00";
+
+      const convertedTime = `${userHours}:${userMinutes}`;
+      console.log(
+        `✓ Display conversion: ${storedSystemTimezone} ${systemTime} → ${userTimezone} ${convertedTime}`
+      );
+      return convertedTime;
+    } catch (e) {
+      console.error("Error converting time for display:", e);
+      return systemTime;
+    }
+  };
+
+  // Helper to show time conversion example
+  const getConversionExample = () => {
+    if (!userTimezone || !systemTimezone || userTimezone === systemTimezone) {
+      return null;
+    }
+
+    const exampleTime = "14:00"; // 2 PM
+    const [hours, minutes] = exampleTime.split(":").map(Number);
+    const date = new Date("2024-01-15T" + exampleTime + ":00Z");
+
+    const systemFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: systemTimezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    const parts = systemFormatter.formatToParts(date);
+    const sysHours = parts.find((p) => p.type === "hour")?.value || "00";
+    const sysMinutes = parts.find((p) => p.type === "minute")?.value || "00";
+    const systemExampleTime = `${sysHours}:${sysMinutes}`;
+
+    return `Example: ${exampleTime} ${userTimezone} = ${systemExampleTime} ${systemTimezone}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -300,15 +394,51 @@ export default function USBSyncDashboard() {
     }
 
     try {
+      // Convert user's time to system time for backend storage
+      let systemTime = formData.time;
+
+      if (userTimezone && systemTimezone && userTimezone !== systemTimezone) {
+        const [userHours, userMinutes] = formData.time.split(":").map(Number);
+
+        // Create a date at the user's requested time
+        const userDate = new Date();
+        userDate.setHours(userHours, userMinutes, 0, 0);
+
+        // Get what time that is in the system timezone
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: systemTimezone,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+
+        const parts = formatter.formatToParts(userDate);
+        const sysHours = parts.find((p) => p.type === "hour").value;
+        const sysMinutes = parts.find((p) => p.type === "minute").value;
+        systemTime = `${sysHours}:${sysMinutes}`;
+
+        console.log(
+          `✓ Converting: ${userTimezone} ${formData.time} → ${systemTimezone} ${systemTime}`
+        );
+      }
+
       const url = editingId
         ? `${apiUrl}/api/schedules/${editingId}`
         : `${apiUrl}/api/schedules`;
       const method = editingId ? "PUT" : "POST";
 
+      const scheduleData = {
+        ...formData,
+        time: systemTime,
+        userTime: formData.time,
+        userTimezone: userTimezone,
+        systemTimezone: systemTimezone,
+      };
+
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(scheduleData),
       });
 
       if (!response.ok) throw new Error("Failed to save schedule");
@@ -344,7 +474,15 @@ export default function USBSyncDashboard() {
   };
 
   const handleEdit = (schedule) => {
-    setFormData(schedule);
+    // Convert system time back to user timezone for editing
+    const userDisplayTime = convertTimeToUserTimezone(
+      schedule.time,
+      schedule.systemTimezone
+    );
+    setFormData({
+      ...schedule,
+      time: userDisplayTime, // Show in user's timezone for editing
+    });
     setEditingId(schedule.id);
     setShowForm(true);
   };
@@ -376,8 +514,18 @@ export default function USBSyncDashboard() {
       "Saturday",
     ];
 
+    // Convert system time back to user timezone for display
+    const displayTime = convertTimeToUserTimezone(
+      schedule.time,
+      schedule.systemTimezone
+    );
+    const timezoneNote =
+      schedule.userTimezone && schedule.userTimezone !== schedule.systemTimezone
+        ? ` (${schedule.userTimezone})`
+        : "";
+
     if (schedule.frequency === "daily") {
-      return `Daily at ${schedule.time}`;
+      return `Daily at ${displayTime}${timezoneNote}`;
     } else if (schedule.frequency === "weekly") {
       const dayIndex = [
         "monday",
@@ -388,9 +536,9 @@ export default function USBSyncDashboard() {
         "saturday",
         "sunday",
       ].indexOf(schedule.dayOfWeek.toLowerCase());
-      return `Every ${days[dayIndex + 1]} at ${schedule.time}`;
+      return `Every ${days[dayIndex + 1]} at ${displayTime}${timezoneNote}`;
     } else if (schedule.frequency === "monthly") {
-      return `On day ${schedule.dayOfMonth} of month at ${schedule.time}`;
+      return `On day ${schedule.dayOfMonth} of month at ${displayTime}${timezoneNote}`;
     }
   };
 
@@ -514,10 +662,10 @@ export default function USBSyncDashboard() {
                   />
                 </div>
 
-                {/* Source */}
+                {/* USB Source */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Source Path *
+                    USB Source Path *
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -546,10 +694,10 @@ export default function USBSyncDashboard() {
                   )}
                 </div>
 
-                {/* Destination */}
+                {/* NAS Destination */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Destination Path *
+                    NAS Destination Path *
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -598,7 +746,7 @@ export default function USBSyncDashboard() {
                   />
                 </div>
 
-                {/* Frequency */}
+                {/* Frequency and Time */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -630,6 +778,31 @@ export default function USBSyncDashboard() {
                       className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
                     />
                   </div>
+                </div>
+
+                {/* Timezone Info */}
+                <div className="mt-2 space-y-1 p-3 bg-slate-800 rounded-lg border border-slate-700">
+                  <p className="text-sm font-medium text-slate-300">
+                    Timezone Settings
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Your Browser: {userTimezone || "Detecting..."}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Backend System: {systemTimezone || "Detecting..."}
+                  </p>
+                  {getConversionExample() && (
+                    <p className="text-xs text-blue-400 mt-2">
+                      ℹ️ {getConversionExample()}
+                    </p>
+                  )}
+                  {userTimezone &&
+                    systemTimezone &&
+                    userTimezone === systemTimezone && (
+                      <p className="text-xs text-green-400 mt-2">
+                        ✓ Same timezone - no conversion needed
+                      </p>
+                    )}
                 </div>
 
                 {/* Conditional frequency options */}

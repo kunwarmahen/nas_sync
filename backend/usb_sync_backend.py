@@ -64,6 +64,17 @@ CORS(app,
 
 scheduler = BackgroundScheduler()
 
+# Configure scheduler to use system timezone
+import pytz
+try:
+    # Get system timezone from environment
+    system_tz_str = os.environ.get('TZ', 'UTC')
+    scheduler.configure(timezone=pytz.timezone(system_tz_str))
+    logger.info(f"Scheduler configured with timezone: {system_tz_str}")
+except Exception as e:
+    logger.warning(f"Could not configure scheduler timezone: {e}, using UTC")
+    scheduler.configure(timezone=pytz.UTC)
+
 # ===========================
 # Helper Functions
 # ===========================
@@ -190,7 +201,7 @@ def execute_rsync(schedule):
             rsync_cmd,
             capture_output=True,
             text=True,
-            timeout=3600  # 1 hour timeout
+            timeout=3600*10  # 10 hour timeout
         )
 
         # Rsync exit codes:
@@ -252,17 +263,17 @@ def schedule_job(schedule):
     try:
         if frequency == 'daily':
             hour, minute = map(int, schedule['time'].split(':'))
-            trigger = CronTrigger(hour=hour, minute=minute)
+            trigger = CronTrigger(hour=hour, minute=minute, timezone=pytz.timezone(os.environ.get('TZ', 'UTC')))
         elif frequency == 'weekly':
             hour, minute = map(int, schedule['time'].split(':'))
             day_map = {'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 
                       'friday': 4, 'saturday': 5, 'sunday': 6}
             day = day_map.get(schedule['dayOfWeek'].lower(), 0)
-            trigger = CronTrigger(day_of_week=day, hour=hour, minute=minute)
+            trigger = CronTrigger(day_of_week=day, hour=hour, minute=minute, timezone=pytz.timezone(os.environ.get('TZ', 'UTC')))
         elif frequency == 'monthly':
             hour, minute = map(int, schedule['time'].split(':'))
             day = int(schedule['dayOfMonth'])
-            trigger = CronTrigger(day=day, hour=hour, minute=minute)
+            trigger = CronTrigger(day=day, hour=hour, minute=minute, timezone=pytz.timezone(os.environ.get('TZ', 'UTC')))
         else:
             logger.error(f"Unknown frequency: {frequency}")
             return
@@ -274,7 +285,12 @@ def schedule_job(schedule):
             id=f'sync-{schedule_id}',
             name=schedule['name']
         )
-        logger.info(f"Scheduled job: {schedule['name']} (ID: {schedule_id})")
+        logger.info(f"✓ Scheduled job: {schedule['name']}")
+        logger.info(f"  ID: {schedule_id}")
+        logger.info(f"  Frequency: {frequency}")
+        logger.info(f"  Time: {schedule['time']} (system timezone: {os.environ.get('TZ', 'UTC')})")
+        logger.info(f"  Source: {schedule['usbSource']}")
+        logger.info(f"  Destination: {schedule['nasDestination']}")
     except Exception as e:
         logger.error(f"Error scheduling job: {e}")
 
@@ -640,6 +656,29 @@ def get_system_status():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/timezone', methods=['GET'])
+def get_system_timezone():
+    """Get system timezone"""
+    try:
+        import time
+        # Get timezone from system
+        tz_name = time.tzname[0] if time.daylight == 0 else time.tzname[1]
+        
+        # Get timezone offset
+        import os
+        tz_env = os.environ.get('TZ', 'UTC')
+        
+        return jsonify({
+            'timezone': tz_env,
+            'system_tz': tz_name,
+            'utc_offset': datetime.now().astimezone().strftime('%z')
+        })
+    except Exception as e:
+        return jsonify({
+            'timezone': 'UTC',
+            'error': str(e)
+        }), 200
 
 @app.route('/health', methods=['GET'])
 def health():
