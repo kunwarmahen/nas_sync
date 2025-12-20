@@ -361,23 +361,30 @@ export default function USBSyncDashboard() {
       return null;
     }
 
-    const exampleTime = "14:00"; // 2 PM
-    const [hours, minutes] = exampleTime.split(":").map(Number);
-    const date = new Date("2024-01-15T" + exampleTime + ":00Z");
+    try {
+      const exampleTime = "14:00"; // 2 PM in user's timezone
 
-    const systemFormatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: systemTimezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+      // Create a date that represents 14:00 in the user's timezone
+      // We need to construct it properly for the user's timezone
+      const date = new Date("2024-01-15T14:00:00");
 
-    const parts = systemFormatter.formatToParts(date);
-    const sysHours = parts.find((p) => p.type === "hour")?.value || "00";
-    const sysMinutes = parts.find((p) => p.type === "minute")?.value || "00";
-    const systemExampleTime = `${sysHours}:${sysMinutes}`;
+      // Format it in the system timezone to see what time it would be
+      const systemFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: systemTimezone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
 
-    return `Example: ${exampleTime} ${userTimezone} = ${systemExampleTime} ${systemTimezone}`;
+      const parts = systemFormatter.formatToParts(date);
+      const sysHours = parts.find((p) => p.type === "hour")?.value || "00";
+      const sysMinutes = parts.find((p) => p.type === "minute")?.value || "00";
+      const systemExampleTime = `${sysHours}:${sysMinutes}`;
+
+      return `Example: 14:00 ${userTimezone} → ${systemExampleTime} ${systemTimezone}`;
+    } catch (e) {
+      return null;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -504,16 +511,6 @@ export default function USBSyncDashboard() {
   };
 
   const getScheduleDescription = (schedule) => {
-    const days = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-
     // Convert system time back to user timezone for display
     const displayTime = convertTimeToUserTimezone(
       schedule.time,
@@ -527,16 +524,26 @@ export default function USBSyncDashboard() {
     if (schedule.frequency === "daily") {
       return `Daily at ${displayTime}${timezoneNote}`;
     } else if (schedule.frequency === "weekly") {
-      const dayIndex = [
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-        "sunday",
-      ].indexOf(schedule.dayOfWeek.toLowerCase());
-      return `Every ${days[dayIndex + 1]} at ${displayTime}${timezoneNote}`;
+      const dayNames = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+      const dayMap = {
+        monday: 1,
+        tuesday: 2,
+        wednesday: 3,
+        thursday: 4,
+        friday: 5,
+        saturday: 6,
+        sunday: 0,
+      };
+      const dayIndex = dayMap[schedule.dayOfWeek.toLowerCase()] || 0;
+      return `Every ${dayNames[dayIndex]} at ${displayTime}${timezoneNote}`;
     } else if (schedule.frequency === "monthly") {
       return `On day ${schedule.dayOfMonth} of month at ${displayTime}${timezoneNote}`;
     }
