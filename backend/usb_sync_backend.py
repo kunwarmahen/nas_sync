@@ -186,11 +186,11 @@ def execute_rsync(schedule):
     rsync_cmd = [
         'rsync',
         '-av',
-        '--delete',
+        # '--delete',
         '--no-perms',
         '--no-owner',
         '--no-group',
-        '--ignore-times',
+        # '--ignore-times',
         '--log-file', str(LOGS_DIR / f'rsync-{schedule_id}.log'),
         f'{source}/',
         destination
@@ -427,17 +427,17 @@ def test_schedule_now(schedule_id):
                 cmd = [
                     'rsync',
                     '-av',
-                    '--delete',
+                    # '--delete',
                     '--no-perms',
                     '--no-owner',
                     '--no-group',
-                    '--ignore-times',
+                    # '--ignore-times',
                     f'{source}/',
                     f'{destination}/'
                 ]
                 
                 logger.info(f'[TEST] Running command: {" ".join(cmd)}')
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600 * 10)
                 
                 # Rsync code 23 = partial transfer (normal in containers)
                 success = result.returncode in [0, 23]
