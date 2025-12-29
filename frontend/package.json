@@ -1,7 +1,7 @@
 {
   "name": "usb-sync-manager-frontend",
   "version": "1.0.0",
-  "description": "USB Sync Manager - React Dashboard",
+  "description": "Sync Manager - React Dashboard",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",

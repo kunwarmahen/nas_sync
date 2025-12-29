@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-# Entrypoint script for USB Sync Manager Docker container
+# Entrypoint script for Sync Manager Docker container
 
-echo "Starting USB Sync Manager..."
+echo "Starting Sync Manager..."
 
 # Ensure config directory exists and is writable
 mkdir -p /etc/usb-sync-manager

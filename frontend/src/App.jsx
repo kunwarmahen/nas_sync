@@ -576,10 +576,10 @@ export default function USBSyncDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                USB Sync Manager
+                Sync Manager
               </h1>
               <p className="text-slate-400 text-sm mt-1">
-                Scheduled USB to NAS backups with email notifications
+                Scheduled storage backups with email notifications
               </p>
             </div>
             <button
@@ -680,7 +680,7 @@ export default function USBSyncDashboard() {
                 {/* USB Source */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    USB Source Path *
+                    Source Path *
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -712,7 +712,7 @@ export default function USBSyncDashboard() {
                 {/* NAS Destination */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    NAS Destination Path *
+                    Destination Path *
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -880,11 +880,17 @@ export default function USBSyncDashboard() {
                       id="useArchive"
                       checked={formData.useArchive}
                       onChange={(e) =>
-                        setFormData({ ...formData, useArchive: e.target.checked })
+                        setFormData({
+                          ...formData,
+                          useArchive: e.target.checked,
+                        })
                       }
                       className="w-4 h-4 rounded border-slate-700"
                     />
-                    <label htmlFor="useArchive" className="text-sm text-slate-300">
+                    <label
+                      htmlFor="useArchive"
+                      className="text-sm text-slate-300"
+                    >
                       Use Archive mode (-a) - Recommended for most backups
                     </label>
                   </div>
@@ -895,12 +901,19 @@ export default function USBSyncDashboard() {
                       id="useDelete"
                       checked={formData.useDelete}
                       onChange={(e) =>
-                        setFormData({ ...formData, useDelete: e.target.checked })
+                        setFormData({
+                          ...formData,
+                          useDelete: e.target.checked,
+                        })
                       }
                       className="w-4 h-4 rounded border-slate-700"
                     />
-                    <label htmlFor="useDelete" className="text-sm text-slate-300">
-                      Delete extraneous files (--delete) - Removes files from destination that don't exist in source
+                    <label
+                      htmlFor="useDelete"
+                      className="text-sm text-slate-300"
+                    >
+                      Delete extraneous files (--delete) - Removes files from
+                      destination that don't exist in source
                     </label>
                   </div>
 
@@ -910,12 +923,19 @@ export default function USBSyncDashboard() {
                       id="useIgnoreTimes"
                       checked={formData.useIgnoreTimes}
                       onChange={(e) =>
-                        setFormData({ ...formData, useIgnoreTimes: e.target.checked })
+                        setFormData({
+                          ...formData,
+                          useIgnoreTimes: e.target.checked,
+                        })
                       }
                       className="w-4 h-4 rounded border-slate-700"
                     />
-                    <label htmlFor="useIgnoreTimes" className="text-sm text-slate-300">
-                      Ignore timestamps (--ignore-times) - Transfer all files regardless of modification time
+                    <label
+                      htmlFor="useIgnoreTimes"
+                      className="text-sm text-slate-300"
+                    >
+                      Ignore timestamps (--ignore-times) - Transfer all files
+                      regardless of modification time
                     </label>
                   </div>
 
@@ -930,12 +950,16 @@ export default function USBSyncDashboard() {
                       step="0.5"
                       value={formData.timeout / 3600}
                       onChange={(e) =>
-                        setFormData({ ...formData, timeout: parseFloat(e.target.value) * 3600 })
+                        setFormData({
+                          ...formData,
+                          timeout: parseFloat(e.target.value) * 3600,
+                        })
                       }
                       className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
                     />
                     <p className="text-xs text-slate-400 mt-1">
-                      Maximum time allowed for sync operation (default: 10 hours)
+                      Maximum time allowed for sync operation (default: 10
+                      hours)
                     </p>
                   </div>
                 </div>

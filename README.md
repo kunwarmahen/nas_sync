@@ -1,6 +1,6 @@
-# NAS/USB Sync Manager
+# Sync Manager
 
-A comprehensive backup solution for automated USB/NAS to NAS/USB or Bsynchronization with email notifications, scheduled backups, and web-based dashboard.
+A comprehensive backup solution for automated storage synchronization (USB/NAS to USB/NAS) with email notifications, scheduled backups, and web-based dashboard.
 
 ## 📁 Project Structure
 

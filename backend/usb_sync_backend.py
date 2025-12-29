@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-USB Sync Manager - Backend API Service
+Sync Manager - Backend API Service
 Flask + APScheduler for managing scheduled rsync backups
 """
 
@@ -137,7 +137,7 @@ def send_email(recipient, subject, body, is_error=False):
                     </div>
                     <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
                     <p style="color: #999; font-size: 12px; margin-bottom: 0;">
-                        USB Sync Manager<br>
+                        Sync Manager<br>
                         {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     </p>
                 </div>
@@ -487,7 +487,7 @@ def test_schedule_now(schedule_id):
                 
                 # Send notification if email configured
                 if schedule.get('notificationEmail'):
-                    subject = f'[TEST] USB Sync - {schedule["name"]}'
+                    subject = f'[TEST] Sync - {schedule["name"]}'
                     body = f'''
 Test execution for schedule: {schedule["name"]}
 
@@ -513,7 +513,7 @@ Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                     try:
                         send_email(
                             schedule['notificationEmail'],
-                            f'[TEST FAILED] USB Sync - {schedule["name"]}',
+                            f'[TEST FAILED] Sync - {schedule["name"]}',
                             f'Test execution failed:\n{str(e)}'
                         )
                     except:
@@ -735,7 +735,7 @@ def test_email():
     
     success = send_email(
         email,
-        "✅ USB Sync Manager - Test Email",
+        "✅ Sync Manager - Test Email",
         "<p>This is a test email to verify your notification settings are working correctly.</p>",
         is_error=False
     )
@@ -760,7 +760,7 @@ def init_app():
     reload_schedules()
     
     logger.info("=" * 70)
-    logger.info("USB Sync Manager initialized")
+    logger.info("Sync Manager initialized")
     logger.info(f"Configuration directory: {CONFIG_DIR}")
     logger.info(f"Schedules loaded: {len(load_schedules())}")
     logger.info(f"Scheduler running: {scheduler.running}")
