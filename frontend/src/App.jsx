@@ -90,6 +90,10 @@ export default function USBSyncDashboard() {
     time: "02:00",
     notificationEmail: "",
     isActive: true,
+    useDelete: false,
+    useIgnoreTimes: false,
+    useArchive: true,
+    timeout: 36000, // 10 hours in seconds
   });
 
   // Timezone handling
@@ -505,6 +509,10 @@ export default function USBSyncDashboard() {
       time: "02:00",
       notificationEmail: "",
       isActive: true,
+      useDelete: false,
+      useIgnoreTimes: false,
+      useArchive: true,
+      timeout: 36000,
     });
     setEditingId(null);
     setShowForm(false);
@@ -860,6 +868,78 @@ export default function USBSyncDashboard() {
                   </div>
                 )}
 
+                {/* Rsync Options */}
+                <div className="border border-slate-700 rounded-lg p-4 space-y-3 bg-slate-800/50">
+                  <h3 className="text-sm font-medium text-slate-300 mb-3">
+                    Rsync Options
+                  </h3>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="useArchive"
+                      checked={formData.useArchive}
+                      onChange={(e) =>
+                        setFormData({ ...formData, useArchive: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-slate-700"
+                    />
+                    <label htmlFor="useArchive" className="text-sm text-slate-300">
+                      Use Archive mode (-a) - Recommended for most backups
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="useDelete"
+                      checked={formData.useDelete}
+                      onChange={(e) =>
+                        setFormData({ ...formData, useDelete: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-slate-700"
+                    />
+                    <label htmlFor="useDelete" className="text-sm text-slate-300">
+                      Delete extraneous files (--delete) - Removes files from destination that don't exist in source
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="useIgnoreTimes"
+                      checked={formData.useIgnoreTimes}
+                      onChange={(e) =>
+                        setFormData({ ...formData, useIgnoreTimes: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-slate-700"
+                    />
+                    <label htmlFor="useIgnoreTimes" className="text-sm text-slate-300">
+                      Ignore timestamps (--ignore-times) - Transfer all files regardless of modification time
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Timeout (hours)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      step="0.5"
+                      value={formData.timeout / 3600}
+                      onChange={(e) =>
+                        setFormData({ ...formData, timeout: parseFloat(e.target.value) * 3600 })
+                      }
+                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      Maximum time allowed for sync operation (default: 10 hours)
+                    </p>
+                  </div>
+                </div>
+
                 {/* Active Status */}
                 <div className="flex items-center gap-3">
                   <input
@@ -1128,6 +1208,28 @@ export default function USBSyncDashboard() {
                       </div>
                       <div className="text-slate-500 text-xs mt-2">
                         Email: {schedule.notificationEmail}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {schedule.useArchive !== false && (
+                          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs border border-blue-500/30">
+                            -a
+                          </span>
+                        )}
+                        {schedule.useDelete && (
+                          <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs border border-orange-500/30">
+                            --delete
+                          </span>
+                        )}
+                        {schedule.useIgnoreTimes && (
+                          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs border border-purple-500/30">
+                            --ignore-times
+                          </span>
+                        )}
+                        {schedule.timeout && (
+                          <span className="px-2 py-0.5 bg-slate-700/50 text-slate-400 rounded text-xs border border-slate-600">
+                            Timeout: {(schedule.timeout / 3600).toFixed(1)}h
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

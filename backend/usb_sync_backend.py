@@ -182,26 +182,42 @@ def execute_rsync(schedule):
     # Create destination if it doesn't exist
     Path(destination).mkdir(parents=True, exist_ok=True)
 
-    # Build rsync command
-    rsync_cmd = [
-        'rsync',
-        '-av',
-        # '--delete',
+    # Build rsync command based on schedule options
+    rsync_cmd = ['rsync']
+
+    # Add archive flag if enabled (default: True)
+    if schedule.get('useArchive', True):
+        rsync_cmd.append('-a')
+    else:
+        rsync_cmd.append('-v')
+
+    # Add delete flag if enabled
+    if schedule.get('useDelete', False):
+        rsync_cmd.append('--delete')
+
+    # Add ignore-times flag if enabled
+    if schedule.get('useIgnoreTimes', False):
+        rsync_cmd.append('--ignore-times')
+
+    # Add standard flags
+    rsync_cmd.extend([
         '--no-perms',
         '--no-owner',
         '--no-group',
-        # '--ignore-times',
         '--log-file', str(LOGS_DIR / f'rsync-{schedule_id}.log'),
         f'{source}/',
         destination
-    ]
+    ])
+
+    # Get timeout from schedule (default: 10 hours = 36000 seconds)
+    timeout_seconds = schedule.get('timeout', 36000)
 
     try:
         result = subprocess.run(
             rsync_cmd,
             capture_output=True,
             text=True,
-            timeout=3600*10  # 10 hour timeout
+            timeout=timeout_seconds
         )
 
         # Rsync exit codes:
@@ -231,7 +247,8 @@ def execute_rsync(schedule):
             return False
 
     except subprocess.TimeoutExpired:
-        error_msg = "Rsync operation timed out (exceeded 1 hour)"
+        timeout_hours = timeout_seconds / 3600
+        error_msg = f"Rsync operation timed out (exceeded {timeout_hours:.1f} hours)"
         logger.error(f"[{schedule_name}] {error_msg}")
         send_email(notification_email,
                    f"❌ Sync Failed: {schedule_name}",
@@ -283,7 +300,8 @@ def schedule_job(schedule):
             trigger=trigger,
             args=[schedule],
             id=f'sync-{schedule_id}',
-            name=schedule['name']
+            name=schedule['name'],
+            misfire_grace_time=1800  # Allow 30 minutes grace time for missed jobs
         )
         logger.info(f"✓ Scheduled job: {schedule['name']}")
         logger.info(f"  ID: {schedule_id}")
@@ -337,6 +355,10 @@ def create_schedule():
         'time': data['time'],
         'notificationEmail': data['notificationEmail'],
         'isActive': data.get('isActive', True),
+        'useDelete': data.get('useDelete', False),
+        'useIgnoreTimes': data.get('useIgnoreTimes', False),
+        'useArchive': data.get('useArchive', True),
+        'timeout': data.get('timeout', 36000),
         'createdAt': datetime.now().isoformat()
     }
 
@@ -422,22 +444,39 @@ def test_schedule_now(schedule_id):
                 
                 # Create destination if needed
                 os.makedirs(destination, exist_ok=True)
-                
-                # Run rsync with detailed output
-                cmd = [
-                    'rsync',
-                    '-av',
-                    # '--delete',
+
+                # Build rsync command based on schedule options
+                cmd = ['rsync']
+
+                # Add archive flag if enabled (default: True)
+                if schedule.get('useArchive', True):
+                    cmd.append('-a')
+                else:
+                    cmd.append('-v')
+
+                # Add delete flag if enabled
+                if schedule.get('useDelete', False):
+                    cmd.append('--delete')
+
+                # Add ignore-times flag if enabled
+                if schedule.get('useIgnoreTimes', False):
+                    cmd.append('--ignore-times')
+
+                # Add standard flags
+                cmd.extend([
                     '--no-perms',
                     '--no-owner',
                     '--no-group',
-                    # '--ignore-times',
                     f'{source}/',
                     f'{destination}/'
-                ]
-                
+                ])
+
+                # Get timeout from schedule (default: 10 hours = 36000 seconds)
+                timeout_seconds = schedule.get('timeout', 36000)
+
                 logger.info(f'[TEST] Running command: {" ".join(cmd)}')
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600 * 10)
+                logger.info(f'[TEST] Timeout: {timeout_seconds} seconds ({timeout_seconds/3600:.1f} hours)')
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds)
                 
                 # Rsync code 23 = partial transfer (normal in containers)
                 success = result.returncode in [0, 23]
