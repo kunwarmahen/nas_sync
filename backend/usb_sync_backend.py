@@ -18,6 +18,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, EVENT_JOB_MISSED
 import psutil
 
 # ===========================
@@ -69,11 +70,36 @@ import pytz
 try:
     # Get system timezone from environment
     system_tz_str = os.environ.get('TZ', 'UTC')
-    scheduler.configure(timezone=pytz.timezone(system_tz_str))
+    scheduler.configure(
+        timezone=pytz.timezone(system_tz_str),
+        job_defaults={
+            'coalesce': True,  # Combine missed runs into one execution
+            'max_instances': 1,  # Only allow one instance of each job at a time
+            'misfire_grace_time': 1800  # Allow 30 minutes grace time for missed jobs
+        }
+    )
     logger.info(f"Scheduler configured with timezone: {system_tz_str}")
 except Exception as e:
     logger.warning(f"Could not configure scheduler timezone: {e}, using UTC")
-    scheduler.configure(timezone=pytz.UTC)
+    scheduler.configure(
+        timezone=pytz.UTC,
+        job_defaults={
+            'coalesce': True,
+            'max_instances': 1,
+            'misfire_grace_time': 1800
+        }
+    )
+
+# Event listener for job execution monitoring
+def job_listener(event):
+    if event.code == EVENT_JOB_EXECUTED:
+        logger.info(f"✓ Job '{event.job_id}' executed successfully")
+    elif event.code == EVENT_JOB_ERROR:
+        logger.error(f"✗ Job '{event.job_id}' raised an error: {event.exception}")
+    elif event.code == EVENT_JOB_MISSED:
+        logger.warning(f"⚠ Job '{event.job_id}' was missed - will execute now (coalesce=True)")
+
+scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED)
 
 # ===========================
 # Helper Functions
