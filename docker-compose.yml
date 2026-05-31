@@ -1,0 +1,59 @@
+# Local development compose — builds from source.
+# Email credentials are read from backend/.env (copy backend/.env.example if missing).
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: usb-sync-manager
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SENDER_EMAIL=${SENDER_EMAIL:-}
+      - SENDER_PASSWORD=${SENDER_PASSWORD:-}
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - usb-sync-config:/etc/usb-sync-manager
+      - /media:/media:ro
+      - /mnt:/mnt:ro
+    networks:
+      - usb-sync-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: usb-sync-manager-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:5000}
+    depends_on:
+      - backend
+    networks:
+      - usb-sync-network
+
+volumes:
+  usb-sync-config:
+    driver: local
+
+networks:
+  usb-sync-network:
+    driver: bridge

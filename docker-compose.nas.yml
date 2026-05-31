@@ -1,0 +1,67 @@
+# NAS deployment compose — uses pre-built images shipped by deploy.sh.
+# All variables are read from .env written by deploy.sh during nas deploy.
+#
+# Required .env keys:
+#   SENDER_EMAIL          Gmail address for backup notifications
+#   SENDER_PASSWORD       Gmail app password
+#   REACT_APP_API_URL     Full URL the browser uses to reach the backend
+#                         e.g. http://192.168.1.100:5000
+#   NAS_CONFIG_PATH       Host path persisting schedules/config
+#                         e.g. /volume1/Docker/usb-sync-manager-config
+#   NAS_VOLUME_PATH       NAS storage path — mounted as /media inside container
+#                         e.g. /volume1  (Synology) or /share (QNAP)
+#   NAS_SHARE_PATH        Secondary share — mounted as /mnt inside container
+#                         e.g. /share
+#
+# pull_policy: never ensures Docker uses locally loaded images, never Docker Hub.
+
+services:
+  backend:
+    image: usb-sync-manager:latest
+    pull_policy: never
+    container_name: usb-sync-manager
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SENDER_EMAIL=${SENDER_EMAIL:-}
+      - SENDER_PASSWORD=${SENDER_PASSWORD:-}
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${NAS_CONFIG_PATH}:/etc/usb-sync-manager
+      - ${NAS_VOLUME_PATH:-/volume1}:/media
+      - ${NAS_SHARE_PATH:-/share}:/mnt
+    networks:
+      - usb-sync-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    image: usb-sync-manager-frontend:latest
+    pull_policy: never
+    container_name: usb-sync-manager-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:5000}
+    depends_on:
+      - backend
+    networks:
+      - usb-sync-network
+
+networks:
+  usb-sync-network:
+    driver: bridge

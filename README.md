@@ -6,25 +6,32 @@ A comprehensive backup solution for automated storage synchronization (USB/NAS t
 
 ```
 usb-sync-manager/
+├── deploy.sh                 # One-command deploy: local or NAS over SSH
+├── docker-compose.yml        # Local dev: builds both containers from source
+├── docker-compose.nas.yml    # NAS deploy: pre-built images + NAS volume mounts
 ├── backend/                  # Python Flask API server
 │   ├── usb_sync_backend.py  # Main backend application
-│   ├── requirements.txt       # Python dependencies
+│   ├── requirements.txt      # Python dependencies
 │   ├── Dockerfile            # Backend container configuration
+│   ├── docker-compose.yml    # Backend-only compose (used by run.sh)
 │   ├── entrypoint.sh         # Backend startup script
-│   └── run.sh               # Backend deployment script
+│   └── run.sh                # Backend deployment script (local/docker/podman)
 │
 ├── frontend/                 # React web dashboard
 │   ├── src/
-│   │   ├── App.jsx          # Main React component
-│   │   └── index.js         # React entry point
+│   │   ├── App.jsx           # Main React component
+│   │   └── index.js          # React entry point
 │   ├── public/
-│   │   └── index.html       # HTML template with runtime config loader
-│   ├── package.json         # Node.js dependencies
-│   ├── frontend.sh          # Frontend deployment script
+│   │   └── index.html        # HTML template with runtime config loader
+│   ├── package.json          # Node.js dependencies
+│   ├── Dockerfile            # Frontend container (Node build → Nginx serve)
+│   ├── nginx.conf            # Nginx config serving on :3000
+│   ├── entrypoint.sh         # Injects REACT_APP_API_URL into config.json at startup
+│   └── frontend.sh           # Frontend dev/build/deploy script
 │
-├── migrate.sh               # Podman to Docker migration tool
-├── diagnose.sh              # API connectivity troubleshooting
-└── README.md                # This file
+├── migrate.sh                # Podman to Docker migration tool
+├── diagnose.sh               # API connectivity troubleshooting
+└── README.md                 # This file
 ```
 
 ## 🚀 Quick Start
@@ -62,43 +69,49 @@ cd frontend
 
 **Open in Browser:** `http://localhost:3000`
 
-### NAS Deployment (Docker/Podman)
+### NAS Deployment
 
-#### Option 1: Export from Podman + Import to Docker
+#### Recommended: deploy.sh (one command)
 
-If you have Podman locally and want to deploy to Docker on NAS:
+```bash
+# First deploy — builds locally, ships over SSH, starts on NAS
+NAS_HOST=192.168.1.100 NAS_VOLUME_PATH=/volume1 ./deploy.sh nas deploy
+
+# Re-deploy after code changes
+NAS_HOST=192.168.1.100 ./deploy.sh nas deploy
+
+# Other useful commands
+./deploy.sh nas logs          # tail NAS logs
+./deploy.sh nas shell         # shell into NAS backend
+./deploy.sh nas down          # stop NAS containers
+./deploy.sh --help            # full usage
+```
+
+Email credentials are read automatically from `backend/.env`. `REACT_APP_API_URL` defaults to `http://<NAS_HOST>:5000`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `NAS_HOST` | *(required)* | IP or hostname of your NAS |
+| `NAS_USER` | current user | SSH user |
+| `NAS_PATH` | `~/usb-sync-manager` | Remote deploy directory |
+| `NAS_VOLUME_PATH` | `/volume1` | NAS storage path mounted in backend |
+| `NAS_REACT_APP_API_URL` | `http://$NAS_HOST:5000` | Override frontend→backend URL |
+
+#### Manual: migrate.sh (Podman → Docker)
 
 ```bash
 # On local machine with Podman
-./migrate.sh
-# Select: 1 (Export from Podman)
-# Choose: 1 (Both images)
-# Enter: directory to save files
+./migrate.sh   # Select: Export → Both images → save directory
 
-# Transfer files to NAS
-scp migrate-usb-sync-manager-*.tar user@nas-ip:/tmp/
-
-# On NAS with Docker
-./migrate.sh
-# Select: 2 (Import to Docker)
-# Enter: /tmp (where files are)
-# Choose: 1 (Both images)
-# Answer: yes to all prompts
+# Transfer to NAS, then on NAS:
+./migrate.sh   # Select: Import → /tmp → Both images
 ```
 
-#### Option 2: Build Directly on NAS
+#### Manual: build on NAS directly
 
 ```bash
-# Backend
-cd backend
-./run.sh podman/docker build
-./run.sh podman/docker run
-
-# Frontend
-cd frontend
-./frontend.sh podman/docker build
-./frontend.sh podman/docker run
-# When prompted for API URL, press ENTER (auto-detects)
+cd backend && ./run.sh docker build && ./run.sh docker run
+cd frontend && ./frontend.sh docker build && ./frontend.sh docker run
 ```
 
 ## 🔧 Configuration
@@ -261,7 +274,7 @@ cd frontend
 cd backend
 # Edit usb_sync_backend.py
 # Changes apply immediately in local mode
-# For Docker: rebuild with ./run.sh podman/docker build
+# Re-deploy to NAS: NAS_HOST=192.168.1.100 ./deploy.sh nas deploy
 ```
 
 **Frontend Changes:**
@@ -269,8 +282,8 @@ cd backend
 ```bash
 cd frontend
 # Edit src/App.jsx
-# Changes auto-refresh in dev mode (npm run dev)
-# For Docker: rebuild with ./frontend.sh podman/docker build
+# Changes auto-refresh in dev mode: ./frontend.sh dev
+# Re-deploy to NAS: NAS_HOST=192.168.1.100 ./deploy.sh nas deploy
 ```
 
 ### Running Tests
@@ -297,50 +310,23 @@ fetch('http://localhost:5000/api/schedules')
 - [ ] Set up at least one scheduled backup
 - [ ] Verify folder browser can access all paths
 
-### Docker Compose (Optional)
+### Docker Compose
 
-Create `docker-compose.yml`:
+Two compose files are included:
 
-```yaml
-version: "3.8"
+- **`docker-compose.yml`** (root) — local dev, builds from source:
+  ```bash
+  # reads credentials from backend/.env
+  ./deploy.sh local up       # recommended
+  # or manually:
+  docker compose up --build -d
+  ```
 
-services:
-  backend:
-    image: usb-sync-manager-backend:latest
-    container_name: usb-sync-manager-backend
-    ports:
-      - "5000:5000"
-    volumes:
-      - usb-sync-config:/etc/usb-sync-manager
-      - /media:/media
-      - /mnt:/mnt
-    environment:
-      - SENDER_EMAIL=${SENDER_EMAIL}
-      - SENDER_PASSWORD=${SENDER_PASSWORD}
-      - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
-      - SMTP_PORT=${SMTP_PORT:-587}
-    restart: unless-stopped
-
-  frontend:
-    image: usb-sync-manager-frontend:latest
-    container_name: usb-sync-manager-frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:5000
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-volumes:
-  usb-sync-config:
-```
-
-Run with:
-
-```bash
-docker-compose up -d
-```
+- **`docker-compose.nas.yml`** — NAS deploy, uses pre-built images:
+  ```bash
+  # managed automatically by deploy.sh nas deploy
+  # pull_policy: never prevents accidental registry pulls
+  ```
 
 ## 📊 Backup Schedule Examples
 
